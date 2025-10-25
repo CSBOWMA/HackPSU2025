@@ -1,0 +1,52 @@
+.message-wrapper {
+    display: flex;
+    margin-bottom: 1rem;
+    animation: slideIn 0.3s ease-out;
+}
+
+.message-wrapper.user {
+    justify-content: flex-end;
+}
+
+.message-wrapper.bot {
+    justify-content: flex-start;
+}
+
+.message {
+    max-width: 70%;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    word-wrap: break-word;
+}
+
+.user-message {
+    background-color: #646cff;
+    color: white;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.bot-message {
+    background-color: #2a2a2a;
+    color: rgba(255, 255, 255, 0.87);
+    border-bottom-left-radius: 0.25rem;
+}
+
+.message p {
+    margin: 0 0 0.25rem 0;
+}
+
+.timestamp {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
