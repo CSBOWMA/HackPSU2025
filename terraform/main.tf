@@ -31,16 +31,26 @@ module "dynamodb_classes" {
   environment  = var.environment
 }
 
+# DynamoDB Module (Assignments)
+module "dynamodb_assignments" {
+  source = "./modules/dynamodb-assignments"
+
+  project_name = var.project_name
+  environment  = var.environment
+}
+
 # IAM Module
 module "iam" {
   source = "./modules/iam"
 
-  project_name       = var.project_name
-  environment        = var.environment
-  dynamodb_table_arn = module.dynamodb.table_arn
-  dynamodb_gsi_arn   = module.dynamodb.gsi_arn
-  classes_table_arn  = module.dynamodb_classes.table_arn
-  classes_gsi_arn    = module.dynamodb_classes.gsi_arn
+  project_name          = var.project_name
+  environment           = var.environment
+  dynamodb_table_arn    = module.dynamodb.table_arn
+  dynamodb_gsi_arn      = module.dynamodb.gsi_arn
+  classes_table_arn     = module.dynamodb_classes.table_arn
+  classes_gsi_arn       = module.dynamodb_classes.gsi_arn
+  assignments_table_arn = module.dynamodb_assignments.table_arn
+  assignments_gsi_arn   = module.dynamodb_assignments.gsi_arn
 }
 
 # S3 Module
@@ -72,6 +82,18 @@ module "lambda_classes" {
   lambda_role_arn     = module.iam.lambda_role_arn
   classes_table_name  = module.dynamodb_classes.table_name
   api_execution_arn   = module.api_gateway.execution_arn
+}
+
+# Lambda Module (Assignments)
+module "lambda_assignments" {
+  source = "./modules/lambda-assignments"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  lambda_role_arn        = module.iam.lambda_role_arn
+  assignments_table_name = module.dynamodb_assignments.table_name
+  s3_bucket_name         = module.s3.bucket_name
+  api_execution_arn      = module.api_gateway.execution_arn
 }
 
 # API Gateway Module
@@ -108,4 +130,18 @@ module "api_gateway" {
   create_class_function_name    = module.lambda_classes.create_class_function_name
   update_class_function_name    = module.lambda_classes.update_class_function_name
   delete_class_function_name    = module.lambda_classes.delete_class_function_name
+
+  # Assignments Lambda function ARNs
+  list_assignments_invoke_arn  = module.lambda_assignments.list_assignments_invoke_arn
+  get_assignment_invoke_arn    = module.lambda_assignments.get_assignment_invoke_arn
+  create_assignment_invoke_arn = module.lambda_assignments.create_assignment_invoke_arn
+  update_assignment_invoke_arn = module.lambda_assignments.update_assignment_invoke_arn
+  delete_assignment_invoke_arn = module.lambda_assignments.delete_assignment_invoke_arn
+
+  # Assignments Lambda function names
+  list_assignments_function_name  = module.lambda_assignments.list_assignments_function_name
+  get_assignment_function_name    = module.lambda_assignments.get_assignment_function_name
+  create_assignment_function_name = module.lambda_assignments.create_assignment_function_name
+  update_assignment_function_name = module.lambda_assignments.update_assignment_function_name
+  delete_assignment_function_name = module.lambda_assignments.delete_assignment_function_name
 }

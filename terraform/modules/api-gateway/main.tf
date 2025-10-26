@@ -201,3 +201,77 @@ resource "aws_apigatewayv2_route" "delete_class_route" {
   route_key = "DELETE /users/{user_id}/classes/{class_id}"
   target    = "integrations/${aws_apigatewayv2_integration.delete_class_integration.id}"
 }
+
+# ==================== ASSIGNMENTS INTEGRATIONS ====================
+
+resource "aws_apigatewayv2_integration" "list_assignments_integration" {
+  api_id             = aws_apigatewayv2_api.chat_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.list_assignments_invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_integration" "get_assignment_integration" {
+  api_id             = aws_apigatewayv2_api.chat_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.get_assignment_invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_integration" "create_assignment_integration" {
+  api_id             = aws_apigatewayv2_api.chat_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.create_assignment_invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_integration" "update_assignment_integration" {
+  api_id             = aws_apigatewayv2_api.chat_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.update_assignment_invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_integration" "delete_assignment_integration" {
+  api_id             = aws_apigatewayv2_api.chat_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.delete_assignment_invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
+}
+
+# ==================== ASSIGNMENTS ROUTES ====================
+
+resource "aws_apigatewayv2_route" "list_assignments_route" {
+  api_id    = aws_apigatewayv2_api.chat_api.id
+  route_key = "GET /users/{user_id}/assignments"
+  target    = "integrations/${aws_apigatewayv2_integration.list_assignments_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_assignment_route" {
+  api_id    = aws_apigatewayv2_api.chat_api.id
+  route_key = "GET /users/{user_id}/assignments/{assignment_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.get_assignment_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "create_assignment_route" {
+  api_id    = aws_apigatewayv2_api.chat_api.id
+  route_key = "POST /users/{user_id}/assignments"
+  target    = "integrations/${aws_apigatewayv2_integration.create_assignment_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "update_assignment_route" {
+  api_id    = aws_apigatewayv2_api.chat_api.id
+  route_key = "PUT /users/{user_id}/assignments/{assignment_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.update_assignment_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "delete_assignment_route" {
+  api_id    = aws_apigatewayv2_api.chat_api.id
+  route_key = "DELETE /users/{user_id}/assignments/{assignment_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.delete_assignment_integration.id}"
+}

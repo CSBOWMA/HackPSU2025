@@ -44,7 +44,9 @@ resource "aws_iam_role_policy" "lambda_policy" {
           var.dynamodb_table_arn,
           var.dynamodb_gsi_arn,
           var.classes_table_arn,
-          var.classes_gsi_arn
+          var.classes_gsi_arn,
+          var.assignments_table_arn,
+          var.assignments_gsi_arn
         ]
       },
       {

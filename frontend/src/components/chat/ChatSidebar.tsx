@@ -78,7 +78,7 @@ function ChatSidebar({ currentChatId, onSelectChat, onNewChat, refreshTrigger }:
         <div className="chat-sidebar">
             <div className="sidebar-header">
                 <h2>Chat History</h2>
-                <button onClick={onNewChat} className="new-chat-button" title="New Chat">
+                <button onClick={onNewChat} className="new-chat-button" title="New Chat">💬
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                         <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>

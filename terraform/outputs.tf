@@ -18,8 +18,13 @@ output "dynamodb_classes_table_name" {
   value       = module.dynamodb_classes.table_name
 }
 
+output "dynamodb_assignments_table_name" {
+  description = "DynamoDB assignments table name"
+  value       = module.dynamodb_assignments.table_name
+}
+
 output "s3_bucket_name" {
-  description = "S3 bucket name for RAG data"
+  description = "S3 bucket name for files"
   value       = module.s3.bucket_name
 }
 
@@ -55,6 +60,13 @@ output "lambda_function_names" {
     create_class    = module.lambda_classes.create_class_function_name
     update_class    = module.lambda_classes.update_class_function_name
     delete_class    = module.lambda_classes.delete_class_function_name
+    
+    # Assignments functions
+    list_assignments   = module.lambda_assignments.list_assignments_function_name
+    get_assignment     = module.lambda_assignments.get_assignment_function_name
+    create_assignment  = module.lambda_assignments.create_assignment_function_name
+    update_assignment  = module.lambda_assignments.update_assignment_function_name
+    delete_assignment  = module.lambda_assignments.delete_assignment_function_name
   }
 }
 
@@ -74,5 +86,12 @@ output "api_routes" {
     create_class    = "POST ${module.api_gateway.api_endpoint}/users/{user_id}/classes"
     update_class    = "PUT ${module.api_gateway.api_endpoint}/users/{user_id}/classes/{class_id}"
     delete_class    = "DELETE ${module.api_gateway.api_endpoint}/users/{user_id}/classes/{class_id}"
+    
+    # Assignments routes
+    list_assignments  = "GET ${module.api_gateway.api_endpoint}/users/{user_id}/assignments"
+    get_assignment    = "GET ${module.api_gateway.api_endpoint}/users/{user_id}/assignments/{assignment_id}"
+    create_assignment = "POST ${module.api_gateway.api_endpoint}/users/{user_id}/assignments"
+    update_assignment = "PUT ${module.api_gateway.api_endpoint}/users/{user_id}/assignments/{assignment_id}"
+    delete_assignment = "DELETE ${module.api_gateway.api_endpoint}/users/{user_id}/assignments/{assignment_id}"
   }
 }

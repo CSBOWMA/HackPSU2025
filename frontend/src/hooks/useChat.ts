@@ -94,5 +94,8 @@ export const useChat = (chatId?: string) => {
         error,
         sendMessage,
         loadChat,
+        clearChat,
+        currentChatId,   
+        createNewChat    
     };
 };

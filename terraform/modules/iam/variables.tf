@@ -27,3 +27,13 @@ variable "classes_gsi_arn" {
   description = "DynamoDB classes GSI ARN"
   type        = string
 }
+
+variable "assignments_table_arn" {
+  description = "DynamoDB assignments table ARN"
+  type        = string
+}
+
+variable "assignments_gsi_arn" {
+  description = "DynamoDB assignments GSI ARN"
+  type        = string
+}

@@ -109,3 +109,56 @@ variable "delete_class_function_name" {
   description = "Delete Class Lambda function name"
   type        = string
 }
+
+# ... (keep existing variables) ...
+
+# Assignments Lambda variables
+variable "list_assignments_invoke_arn" {
+  description = "List Assignments Lambda invoke ARN"
+  type        = string
+}
+
+variable "get_assignment_invoke_arn" {
+  description = "Get Assignment Lambda invoke ARN"
+  type        = string
+}
+
+variable "create_assignment_invoke_arn" {
+  description = "Create Assignment Lambda invoke ARN"
+  type        = string
+}
+
+variable "update_assignment_invoke_arn" {
+  description = "Update Assignment Lambda invoke ARN"
+  type        = string
+}
+
+variable "delete_assignment_invoke_arn" {
+  description = "Delete Assignment Lambda invoke ARN"
+  type        = string
+}
+
+variable "list_assignments_function_name" {
+  description = "List Assignments Lambda function name"
+  type        = string
+}
+
+variable "get_assignment_function_name" {
+  description = "Get Assignment Lambda function name"
+  type        = string
+}
+
+variable "create_assignment_function_name" {
+  description = "Create Assignment Lambda function name"
+  type        = string
+}
+
+variable "update_assignment_function_name" {
+  description = "Update Assignment Lambda function name"
+  type        = string
+}
+
+variable "delete_assignment_function_name" {
+  description = "Delete Assignment Lambda function name"
+  type        = string
+}

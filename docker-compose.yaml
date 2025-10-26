@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    env_file:
+      - ./frontend/.env
+    environment:
+      - NODE_ENV=production
+
+  backend:
+    build:
+      context: ./RAG_backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./RAG_backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./RAG_backend:/app
