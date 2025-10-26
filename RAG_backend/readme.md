@@ -1,3 +1,7 @@
+## How to run the backend for debugging?
+
+``` uvicorn app:app --reload --host 0.0.0.0```
+
 **Request Schema**
 
 Must send a json object that matches *QueryRequest* Pydantic model
