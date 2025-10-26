@@ -5,7 +5,7 @@ from decimal import Decimal
 from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(os.environ['TABLE_NAME'])
+table = dynamodb.Table(os.environ['CLASSES_TABLE_NAME'])
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -15,9 +15,8 @@ class DecimalEncoder(json.JSONEncoder):
 
 def lambda_handler(event, context):
     try:
-        # Get user_id from query parameters
-        query_params = event.get('queryStringParameters', {}) or {}
-        user_id = query_params.get('user_id')
+        # Get user_id from path parameters
+        user_id = event.get('pathParameters', {}).get('user_id')
         
         if not user_id:
             return {
@@ -29,48 +28,54 @@ def lambda_handler(event, context):
                     'Access-Control-Allow-Headers': 'Content-Type'
                 },
                 'body': json.dumps({
-                    'message': 'user_id query parameter is required'
+                    'message': 'user_id is required'
                 })
             }
         
-        # Query chats for the user using GSI
+        # Query all classes for the user
         response = table.query(
-            IndexName='user_id-updated_at-index',
-            KeyConditionExpression=Key('user_id').eq(user_id),
-            ScanIndexForward=False  # Sort in descending order (most recent first)
+            KeyConditionExpression=Key('user_id').eq(user_id)
         )
         
-        chats = response.get('Items', [])
+        classes = response.get('Items', [])
         
-        # Remove messages from list view for performance
-        chats_summary = []
-        for chat in chats:
-            chat_summary = {
-                'chat_id': chat['chat_id'],
-                'user_id': chat['user_id'],
-                'title': chat.get('title', 'Untitled Chat'),
-                'created_at': chat['created_at'],
-                'updated_at': chat['updated_at'],
-                'message_count': len(chat.get('messages', []))
+        # Transform to match frontend interface
+        formatted_classes = []
+        for cls in classes:
+            formatted_class = {
+                'id': cls['class_id'],
+                'name': cls['name'],
+                'code': cls['code'],
+                'instructor': cls['instructor'],
+                'schedule': cls['schedule'],
+                'semester': cls['semester']
             }
-            chats_summary.append(chat_summary)
+            
+            # Add optional fields if they exist
+            if 'color' in cls:
+                formatted_class['color'] = cls['color']
+            if 'description' in cls:
+                formatted_class['description'] = cls['description']
+            
+            formatted_classes.append(formatted_class)
         
         return {
             'statusCode': 200,
             'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
             },
             'body': json.dumps({
-                'chats': chats_summary,
-                'count': len(chats_summary)
+                'classes': formatted_classes
             }, cls=DecimalEncoder)
         }
         
     except Exception as e:
         print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {
             'statusCode': 500,
             'headers': {
@@ -80,7 +85,7 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Headers': 'Content-Type'
             },
             'body': json.dumps({
-                'message': 'Failed to list chats',
+                'message': 'Failed to get classes',
                 'error': str(e)
             })
         }

@@ -1,12 +1,4 @@
 // types/chat.types.ts
-export interface Message {
-    id: number;
-    text: string;
-    sender: 'user' | 'bot';
-    timestamp: Date;
-    role?: 'user' | 'assistant'; // Add role for API compatibility
-    content?: string; // Add content for API compatibility
-}
 
 export interface ChatApiResponse {
     message: string;
@@ -90,4 +82,24 @@ export interface ChatSession {
     timestamp: Date;
     messageCount: number;
     updatedAt: Date;
+}
+
+export interface QueryRequest {
+    question: string;
+}
+
+export interface RAGResponse {
+    answer: string;
+    sources: string[];
+}
+
+// Enhanced Message type to include sources
+export interface Message {
+    id: number;
+    text: string;
+    sender: 'user' | 'bot';
+    timestamp: Date;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    sources?: string[]; // Add sources field for bot messages
 }

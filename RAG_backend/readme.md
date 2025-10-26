@@ -34,9 +34,3 @@ The API will return a single JSON object that matches the RAGResponse Pydantic m
 - Method: POST
 - Path: /query-rag 
 - Purpose: Runs the vector search (retriever), formats the prompt with the retrieved context, and generates the final, source-aware answer using the Gemini model.
-
-## How to run
-
-open your terminal & enter following command
-
-uvicorn app:app --reload --host 0.0.0.0

@@ -1,104 +1,91 @@
-// hooks/useChat.ts
-import { useState, useCallback, useEffect } from 'react';
-import {
-    getChatById,
-    createChat,
-    appendMessage,
-    sendMessage as sendMessageApi
-} from '../services/chatApi';
-import type { Message, UseChatReturn } from '../types/chat.types';
+import { useState, useCallback } from 'react';
+import type { Message } from '../types/chat.types';
+import * as chatApi from '../services/chatApi';
 
-export const useChat = (): UseChatReturn => {
+export const useChat = (chatId?: string) => {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
-    const sendMessage = useCallback(async (userMessage: string): Promise<void> => {
-        if (!userMessage.trim()) return;
+    const sendMessage = useCallback(async (text: string) => {
+        if (!text.trim()) return;
 
-        // Add user message to UI immediately for better UX
-        const userMessageObj: Message = {
+        setIsLoading(true);
+        setError(null);
+
+        // Add user message immediately
+        const userMessage: Message = {
             id: Date.now(),
-            text: userMessage,
+            text,
             sender: 'user',
             timestamp: new Date(),
             role: 'user',
-            content: userMessage,
+            content: text,
         };
 
-        setMessages(prev => [...prev, userMessageObj]);
-        setIsLoading(true);
-        setError(null);
+        setMessages(prev => [...prev, userMessage]);
 
         try {
-            let chatId = currentChatId;
-
-            // If no chat exists, create a new one
-            if (!chatId) {
-                const createResponse = await createChat(userMessage);
-                chatId = createResponse.chat_id;
-                setCurrentChatId(chatId);
-            } else {
-                // Append message to existing chat
-                await appendMessage(chatId, userMessage, 'user');
-            }
-
-            // Get AI response (you'll need to implement this based on your API)
-            const botResponse = await sendMessageApi(userMessage);
-
-            // Append AI response to the chat
+            // If there's a chatId, append to existing chat
             if (chatId) {
-                await appendMessage(chatId, botResponse, 'assistant');
+                await chatApi.appendMessage(chatId, text, 'user');
+            } else {
+                // Create new chat if no chatId
+                await chatApi.createChat(text);
             }
 
-            // Add bot response to UI
-            const botMessageObj: Message = {
+            // Get AI response from RAG system
+            const ragResponse = await chatApi.sendMessage(text);
+
+            // Add bot message with answer and sources
+            const botMessage: Message = {
                 id: Date.now() + 1,
-                text: botResponse,
+                text: ragResponse.answer,
                 sender: 'bot',
                 timestamp: new Date(),
                 role: 'assistant',
-                content: botResponse,
+                content: ragResponse.answer,
+                sources: ragResponse.sources,
             };
 
-            setMessages(prev => [...prev, botMessageObj]);
-        } catch (err) {
-            setError('Failed to send message. Please try again.');
-            console.error('Chat error:', err);
+            setMessages(prev => [...prev, botMessage]);
 
-            // Remove the user message from UI if sending failed
-            setMessages(prev => prev.filter(msg => msg.id !== userMessageObj.id));
+            // If there's a chatId, save the bot response too
+            if (chatId) {
+                await chatApi.appendMessage(chatId, ragResponse.answer, 'assistant');
+            }
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
+            setError(errorMessage);
+
+            // Add error message to chat
+            const errorMsg: Message = {
+                id: Date.now() + 1,
+                text: `Error: ${errorMessage}`,
+                sender: 'bot',
+                timestamp: new Date(),
+                role: 'assistant',
+                content: errorMessage,
+            };
+            setMessages(prev => [...prev, errorMsg]);
         } finally {
             setIsLoading(false);
         }
-    }, [currentChatId]);
+    }, [chatId]);
 
-    const clearChat = useCallback((): void => {
-        setMessages([]);
-        setError(null);
-    }, []);
-
-    const loadChat = useCallback(async (chatId: string): Promise<void> => {
+    const loadChat = useCallback(async (id: string) => {
         setIsLoading(true);
         setError(null);
 
         try {
-            const chatData = await getChatById(chatId);
-            setMessages(chatData.messages || []);
-            setCurrentChatId(chatId);
+            const chat = await chatApi.getChatById(id);
+            setMessages(chat.messages);
         } catch (err) {
-            setError('Failed to load chat');
-            console.error('Error loading chat:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Failed to load chat';
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
-    }, []);
-
-    const createNewChat = useCallback((): void => {
-        setMessages([]);
-        setError(null);
-        setCurrentChatId(null); // Set to null, will be created on first message
     }, []);
 
     return {
@@ -106,9 +93,6 @@ export const useChat = (): UseChatReturn => {
         isLoading,
         error,
         sendMessage,
-        clearChat,
-        currentChatId,
         loadChat,
-        createNewChat,
     };
 };
