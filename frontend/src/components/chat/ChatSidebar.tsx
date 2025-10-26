@@ -1,6 +1,6 @@
 // components/chat/ChatSidebar.tsx
-import { useEffect, useState } from 'react';
-import { ChatSession } from '../../types/chat.types';
+import { useEffect, useState, useCallback } from 'react';
+import type { ChatSession } from '../../types/chat.types';
 import { getChatSessions, deleteChat } from '../../services/chatApi';
 import './ChatSidebar.css';
 
@@ -8,14 +8,15 @@ interface ChatSidebarProps {
     currentChatId: string | null;
     onSelectChat: (chatId: string) => void;
     onNewChat: () => void;
+    refreshTrigger?: number; // Add this to trigger refresh from parent
 }
 
-function ChatSidebar({ currentChatId, onSelectChat, onNewChat }: ChatSidebarProps) {
+function ChatSidebar({ currentChatId, onSelectChat, onNewChat, refreshTrigger }: ChatSidebarProps) {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    const loadSessions = async () => {
+    const loadSessions = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
@@ -27,14 +28,15 @@ function ChatSidebar({ currentChatId, onSelectChat, onNewChat }: ChatSidebarProp
         } finally {
             setIsLoading(false);
         }
-    };
-
-    useEffect(() => {
-        loadSessions();
     }, []);
 
+    // Load sessions on mount and when refreshTrigger changes
+    useEffect(() => {
+        loadSessions();
+    }, [loadSessions, refreshTrigger]);
+
     const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent triggering onSelectChat
+        e.stopPropagation();
 
         if (!window.confirm('Are you sure you want to delete this chat?')) {
             return;
@@ -44,7 +46,6 @@ function ChatSidebar({ currentChatId, onSelectChat, onNewChat }: ChatSidebarProp
             await deleteChat(chatId);
             setSessions(prev => prev.filter(session => session.id !== chatId));
 
-            // If deleted chat was the current one, create a new chat
             if (currentChatId === chatId) {
                 onNewChat();
             }
@@ -60,8 +61,12 @@ function ChatSidebar({ currentChatId, onSelectChat, onNewChat }: ChatSidebarProp
         const diffInHours = diffInMs / (1000 * 60 * 60);
         const diffInDays = diffInHours / 24;
 
-        if (diffInHours < 24) {
+        if (diffInHours < 1) {
+            return 'Just now';
+        } else if (diffInHours < 24) {
             return 'Today';
+        } else if (diffInDays < 2) {
+            return 'Yesterday';
         } else if (diffInDays < 7) {
             return `${Math.floor(diffInDays)} days ago`;
         } else {
@@ -82,11 +87,19 @@ function ChatSidebar({ currentChatId, onSelectChat, onNewChat }: ChatSidebarProp
 
             <div className="sidebar-content">
                 {isLoading && (
-                    <div className="sidebar-loading">Loading chats...</div>
+                    <div className="sidebar-loading">
+                        <div className="loading-spinner"></div>
+                        Loading chats...
+                    </div>
                 )}
 
                 {error && (
-                    <div className="sidebar-error">{error}</div>
+                    <div className="sidebar-error">
+                        {error}
+                        <button onClick={loadSessions} className="retry-button">
+                            Retry
+                        </button>
+                    </div>
                 )}
 
                 {!isLoading && sessions.length === 0 && (
@@ -106,13 +119,12 @@ function ChatSidebar({ currentChatId, onSelectChat, onNewChat }: ChatSidebarProp
                             >
                                 <div className="session-content">
                                     <h3 className="session-title">{session.title}</h3>
-                                    <p className="session-preview">{session.lastMessage}</p>
                                     <div className="session-meta">
                                         <span className="session-time">
-                                            {formatTimestamp(session.timestamp)}
+                                            {formatTimestamp(session.updatedAt)}
                                         </span>
                                         <span className="session-count">
-                                            {session.messageCount} messages
+                                            {session.messageCount} {session.messageCount === 1 ? 'message' : 'messages'}
                                         </span>
                                     </div>
                                 </div>

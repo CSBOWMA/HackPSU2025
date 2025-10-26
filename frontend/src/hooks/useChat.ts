@@ -1,6 +1,11 @@
 // hooks/useChat.ts
 import { useState, useCallback, useEffect } from 'react';
-import { sendMessage as sendMessageApi, saveChat, getChatById } from '../services/chatApi';
+import {
+    getChatById,
+    createChat,
+    appendMessage,
+    sendMessage as sendMessageApi
+} from '../services/chatApi';
 import type { Message, UseChatReturn } from '../types/chat.types';
 
 export const useChat = (): UseChatReturn => {
@@ -9,37 +14,17 @@ export const useChat = (): UseChatReturn => {
     const [error, setError] = useState<string | null>(null);
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
-    // Generate a new chat ID
-    const generateChatId = (): string => {
-        return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    };
-
-    // Initialize with a new chat
-    useEffect(() => {
-        if (!currentChatId) {
-            setCurrentChatId(generateChatId());
-        }
-    }, [currentChatId]);
-
-    // Save chat whenever messages change
-    useEffect(() => {
-        if (currentChatId && messages.length > 0) {
-            saveChat({
-                chatId: currentChatId,
-                messages,
-            }).catch(err => console.error('Error auto-saving chat:', err));
-        }
-    }, [messages, currentChatId]);
-
     const sendMessage = useCallback(async (userMessage: string): Promise<void> => {
-        if (!userMessage.trim() || !currentChatId) return;
+        if (!userMessage.trim()) return;
 
-        // Add user message to chat
+        // Add user message to UI immediately for better UX
         const userMessageObj: Message = {
             id: Date.now(),
             text: userMessage,
             sender: 'user',
             timestamp: new Date(),
+            role: 'user',
+            content: userMessage,
         };
 
         setMessages(prev => [...prev, userMessageObj]);
@@ -47,21 +32,43 @@ export const useChat = (): UseChatReturn => {
         setError(null);
 
         try {
-            // Call API
+            let chatId = currentChatId;
+
+            // If no chat exists, create a new one
+            if (!chatId) {
+                const createResponse = await createChat(userMessage);
+                chatId = createResponse.chat_id;
+                setCurrentChatId(chatId);
+            } else {
+                // Append message to existing chat
+                await appendMessage(chatId, userMessage, 'user');
+            }
+
+            // Get AI response (you'll need to implement this based on your API)
             const botResponse = await sendMessageApi(userMessage);
 
-            // Add bot response to chat
+            // Append AI response to the chat
+            if (chatId) {
+                await appendMessage(chatId, botResponse, 'assistant');
+            }
+
+            // Add bot response to UI
             const botMessageObj: Message = {
                 id: Date.now() + 1,
                 text: botResponse,
                 sender: 'bot',
                 timestamp: new Date(),
+                role: 'assistant',
+                content: botResponse,
             };
 
             setMessages(prev => [...prev, botMessageObj]);
         } catch (err) {
             setError('Failed to send message. Please try again.');
             console.error('Chat error:', err);
+
+            // Remove the user message from UI if sending failed
+            setMessages(prev => prev.filter(msg => msg.id !== userMessageObj.id));
         } finally {
             setIsLoading(false);
         }
@@ -91,7 +98,7 @@ export const useChat = (): UseChatReturn => {
     const createNewChat = useCallback((): void => {
         setMessages([]);
         setError(null);
-        setCurrentChatId(generateChatId());
+        setCurrentChatId(null); // Set to null, will be created on first message
     }, []);
 
     return {
