@@ -54,29 +54,32 @@ def stream_rag_answer(query: str):
     
     # 1. CUSTOM HYBRID RETRIEVAL
     # Use your high-quality hybrid search function directly
-    retrieved_documents = hybrid_search(query, limit=5)
+    
+    try:
+        retrieved_documents = hybrid_search(query, limit=5)
+        if not retrieved_documents:
+            yield f"{{'sources': []}} [METADATA_END] I couldn't find any relevant information in the course materials for your query."
+            return
+        context = "\n".join([f"{doc['id']}: {doc['text']}" for doc in retrieved_documents[0:5]])
+        unique_sources = sorted(list(set(doc["metadata"]["source"] for doc in retrieved_documents)))
+        response_stream = generation_client.chat.completions.create(
+            model=hybrid_retriever.GENERATION_MODEL,
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content": hybrid_retriever.SYSTEM_MESSAGE},
+                {"role": "user", "content": f"{query}\nSources: {context}"},
+            ],
+            stream=True, # Enable streaming!
+        )
+        yield f"{{'sources': {json.dumps(unique_sources)}}}" + "[METADATA_END]"
 
-    if not retrieved_documents:
-        yield f"{{'sources': []}} [METADATA_END] I couldn't find any relevant information in the course materials for your query."
-        return
-    context = "\n".join([f"{doc['id']}: {doc['text']}" for doc in retrieved_documents[0:5]])
-    unique_sources = sorted(list(set(doc["metadata"]["source"] for doc in retrieved_documents)))
-    response_stream = generation_client.chat.completions.create(
-        model=hybrid_retriever.GENERATION_MODEL,
-        temperature=0.3,
-        messages=[
-            {"role": "system", "content": hybrid_retriever.SYSTEM_MESSAGE},
-            {"role": "user", "content": f"{query}\nSources: {context}"},
-        ],
-        stream=True, # Enable streaming!
-    )
-    yield f"{{'sources': {json.dumps(unique_sources)}}}" + "[METADATA_END]"
-
-    # Yield the answer chunks
-    for chunk in response_stream:
-        content = chunk.choices[0].delta.content
-        if content:
-            yield content
+        # Yield the answer chunks
+        for chunk in response_stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                yield content
+    except Exception as e:
+        yield f"{{'sources': []}} [METADATA_END] Error processing your query: {str(e)}"
 
 @app.on_event("startup")
 def load_rag_components():
@@ -86,8 +89,16 @@ def load_rag_components():
     try:
         # Load all documents, create LUNR index, and initialize the models
         initialize_rag()
-        print(f"✅ Hybrid RAG Logic and Indexes loaded successfully! Model: {hybrid_retriever.GENERATION_MODEL}")
-
+        print(f"Hybrid RAG Logic and Indexes loaded successfully! Model: {hybrid_retriever.GENERATION_MODEL}")
+        if hybrid_retriever.index:
+            doc_count = len(hybrid_retriever.documents) if hybrid_retriever.documents else 0
+            print(f"✓ Hybrid RAG initialized successfully!")
+            print(f"  - FAISS Vector Index: Ready")
+            print(f"  - LUNR Full-Text Index: Ready ({doc_count} documents)")
+            print(f"  - Generation Model: {hybrid_retriever.GENERATION_MODEL}")
+            print(f"  - Supported Sources: PDF, IPYNB, CSV")
+        else:
+            print("⚠ Warning: RAG index not initialized properly")
     except Exception as e:
         print(f"FATAL ERROR during RAG initialization: {e}")
         # In a real app, you might crash the app, but here, log the error.
@@ -204,6 +215,58 @@ async def query_rag_stream_endpoint(request: QueryRequest):
         media_type="text/plain" 
     )
 
+
+@app.post("/query-rag", response_model=RAGResponse, tags=["RAG"])
+async def query_rag_endpoint(request: QueryRequest):
+    """
+    Non-streaming endpoint that returns complete answer with sources.
+    Uses hybrid search for better relevance across all document types.
+    """
+    try:
+        query = request.question
+        
+        # Perform hybrid search
+        retrieved_documents = hybrid_search(query, limit=5)
+        
+        if not retrieved_documents:
+            return RAGResponse(
+                answer="I couldn't find any relevant information in the course materials for your query.",
+                sources=[]
+            )
+        
+        # Build context
+        context = "\n".join([
+            f"{doc['id']}: {doc['text']}" 
+            for doc in retrieved_documents[0:5]
+        ])
+        
+        # Get answer from LLM
+        response = generation_client.chat.completions.create(
+            model=hybrid_retriever.GENERATION_MODEL,
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content": hybrid_retriever.SYSTEM_MESSAGE},
+                {"role": "user", "content": f"{query}\n\nContext from course materials:\n{context}"},
+            ],
+        )
+        
+        answer = response.choices[0].message.content
+        
+        # Extract unique sources
+        unique_sources = sorted(list(set(
+            doc["metadata"]["source"] 
+            for doc in retrieved_documents 
+            if "source" in doc.get("metadata", {})
+        )))
+        
+        return RAGResponse(answer=answer, sources=unique_sources)
+        
+    except Exception as e:
+        return RAGResponse(
+            answer=f"An error occurred while processing your query: {str(e)}",
+            sources=[]
+        )
+    
 '''
 # --- 2. API Endpoint --- FOR NON-STREAMING (SIMPLE) ---
 @app.post("/query-rag", response_model=RAGResponse, tags=["RAG"])
@@ -245,7 +308,14 @@ def health_check():
     """Checks if the API is running and the RAG is loaded."""
     # status = "OK" if RAG_CHAIN else "UNINITIALIZED"
     status = "OK" if hybrid_retriever.index else "UNINITIALIZED"
-    return {"status": status, "model": os.getenv("GEMINI_MODEL")}
+    doc_count = len(hybrid_retriever.documents) if hybrid_retriever.documents else 0
+    return {
+        "status": status,
+        "model": hybrid_retriever.GENERATION_MODEL,
+        "indexed_documents": doc_count,
+        "search_type": "Hybrid (Vector + Full-Text + RRF + Rerank)",
+        "supported_sources": ["PDF", "IPYNB", "CSV"]
+    }
 
 # --- DEBUG ENDPOINT: SHOWS RAW CHUNKS ---
 @app.get("/debug-chunks")
@@ -276,3 +346,38 @@ async def get_raw_chunks(query: str):
         
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.get("/debug-hybrid-search", tags=["Debug"])
+async def debug_hybrid_search(query: str):
+    """
+    Debug endpoint to see how hybrid search retrieves from multi-source FAISS.
+    Shows the ranking process and source distribution.
+    """
+    try:
+        retrieved_documents = hybrid_search(query, limit=10)
+        
+        debug_output = []
+        source_count = {}
+        
+        for i, doc in enumerate(retrieved_documents):
+            source = doc.get("metadata", {}).get("source", "unknown")
+            source_count[source] = source_count.get(source, 0) + 1
+            
+            debug_output.append({
+                "rank": i + 1,
+                "id": doc["id"],
+                "source": source,
+                "chunk_size": len(doc.get("text", "")),
+                "text_preview": doc.get("text", "")[:200] + "..."
+            })
+        
+        return {
+            "query": query,
+            "total_retrieved": len(retrieved_documents),
+            "source_distribution": source_count,
+            "retrieved_chunks": debug_output
+        }
+        
+    except Exception as e:
+        return {"error": str(e), "query": query}
