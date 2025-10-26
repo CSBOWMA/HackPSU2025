@@ -1,9 +1,10 @@
 import os
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-
+from fastapi.responses import StreamingResponse
+from fastapi import BackgroundTasks # Optional, but good practice
+import json
 # --- LangChain Imports ---
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -17,22 +18,6 @@ app = FastAPI(title="HackPSU RAG API")
 RAG_CHAIN = None
 RETRIEVER = None
 
-origins = [
-    "http://localhost.tiangolo.com",
-    "https://localhost.tiangolo.com",
-    "http://localhost:5173",
-    "http://localhost",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
 class QueryRequest(BaseModel):
     """Schema for the incoming user question."""
     question: str
@@ -42,7 +27,39 @@ class RAGResponse(BaseModel):
     answer: str
     sources: list[str] = [] # List of unique source files
 
+def stream_rag_answer(query: str, retriever, rag_chain):
+    """Retrieves and streams the LLM response."""
+    sources = retriever.invoke(query)
+    unique_sources = sorted(list(set(d.metadata.get('source') for d in sources)))
+    yield f"{{'sources': {json.dumps(unique_sources)}}}" + "[METADATA_END]"
+
+    # 3. Stream the LLM Answer
+    for chunk in rag_chain.stream(query):
+        # LangChain stream yields the final string chunk by chunk
+        yield chunk
+
 # --- 1. Startup Function (Loads Index ONCE) ---
+# --- RAG Helper Function (Generator) ---
+# This generator function yields chunks of the response as they become available.
+def stream_rag_answer(query: str, retriever, rag_chain):
+    """Retrieves and streams the LLM response."""
+    
+    # 1. Retrieve Sources (Done synchronously as it's fast)
+    sources = retriever.invoke(query)
+    
+    # 2. Yield Sources Separator/Metadata first
+    # This sends the metadata (sources) to the client *before* the main answer stream starts.
+    unique_sources = sorted(list(set(d.metadata.get('source') for d in sources)))
+    
+    # Use a custom delimiter the front-end can look for to separate metadata from the answer text
+    # The JSON structure will be modified to handle the stream, so we send sources first.
+    yield f"{{'sources': {json.dumps(unique_sources)}}}" + "[METADATA_END]"
+
+    # 3. Stream the LLM Answer
+    for chunk in rag_chain.stream(query):
+        # LangChain stream yields the final string chunk by chunk
+        yield chunk
+
 @app.on_event("startup")
 def load_rag_components():
     """Initializes the FAISS index, LLM, and RAG chain into memory."""
@@ -119,7 +136,28 @@ def load_rag_components():
         print(f"FATAL ERROR during RAG initialization: {e}")
         # In a real app, you might crash the app, but here, log the error.
 
-# --- 2. API Endpoint ---
+# --- REVISED STREAMING ENDPOINT ---
+# Note: We change the return type to StreamingResponse
+@app.post("/query-rag", tags=["RAG"])
+async def query_rag_endpoint(request: QueryRequest):
+    """
+    Accepts a user question and streams the RAG-augmented answer chunk by chunk.
+    The response starts with a metadata block containing sources.
+    """
+    global RAG_CHAIN
+    global RETRIEVER
+    
+    if RAG_CHAIN is None:
+        return {"answer": "Error: RAG system failed to initialize.", "sources": []} # Fallback
+
+    # The content type is typically text/event-stream for SSE, but text/plain is simpler
+    # for a basic stream where the client joins the chunks.
+    return StreamingResponse(
+        stream_rag_answer(request.question, RETRIEVER, RAG_CHAIN), 
+        media_type="text/plain" 
+    )
+'''
+# --- 2. API Endpoint --- FOR NON-STREAMING (SIMPLE) ---
 @app.post("/query-rag", response_model=RAGResponse, tags=["RAG"])
 async def query_rag_endpoint(request: QueryRequest):
     """Accepts a user question and returns the RAG-augmented answer and sources."""
@@ -152,7 +190,7 @@ async def query_rag_endpoint(request: QueryRequest):
             answer=f"An unexpected error occurred during processing: {e}", 
             sources=[]
         )
-
+'''
 # --- 3. Simple Health Check ---
 @app.get("/health", tags=["System"])
 def health_check():
