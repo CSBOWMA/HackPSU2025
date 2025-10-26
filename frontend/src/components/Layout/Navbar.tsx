@@ -14,6 +14,9 @@ export default function Navbar() {
                 <li>
                     <Link to="/chat">Chat</Link>
                 </li>
+                <li>
+                    <Link to="/classes">Classes</Link>
+                </li>
             </ul>
         </nav>
     );

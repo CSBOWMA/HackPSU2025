@@ -9,7 +9,7 @@ import type {
     ApiChatSession,
     ApiChatDetail,
     ChatSession,
-    Message,
+    Message, RAGResponse, QueryRequest,
 } from '../types/chat.types';
 
 // Helper function to convert API chat session to UI format
@@ -197,17 +197,31 @@ export const deleteChat = async (chatId: string): Promise<void> => {
  * Send a message and get AI response
  * This is a placeholder - you'll need to implement based on how your AI responds
  */
-export const sendMessage = async (message: string): Promise<string> => {
+export const sendMessage = async (message: string): Promise<RAGResponse> => {
     try {
-        // TODO: Implement AI response endpoint
-        // This might be a separate endpoint or part of the append message response
+        const url = `${API_CONFIG.FASTAPI_BASE_URL}${API_CONFIG.ENDPOINTS.RAG_QUERY}`;
 
-        // For now, return a placeholder
-        // You'll need to update this based on your actual AI integration
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return `AI Response to: ${message}`;
+        const requestBody: QueryRequest = {
+            question: message,
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to send message: ${response.statusText}. ${errorText}`);
+        }
+
+        const data: RAGResponse = await response.json();
+        return data;
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Error sending message to RAG:', error);
         throw error;
     }
 };

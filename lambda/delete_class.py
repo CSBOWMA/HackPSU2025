@@ -3,48 +3,51 @@ import boto3
 import os
 
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(os.environ['TABLE_NAME'])
+table = dynamodb.Table(os.environ['CLASSES_TABLE_NAME'])
 
 def lambda_handler(event, context):
     try:
-        # Get chat_id from path parameters
-        chat_id = event.get('pathParameters', {}).get('chat_id')
+        # Get user_id and class_id from path parameters
+        path_params = event.get('pathParameters', {})
+        user_id = path_params.get('user_id')
+        class_id = path_params.get('class_id')
         
-        if not chat_id:
+        if not user_id or not class_id:
             return {
                 'statusCode': 400,
                 'headers': {
                     'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
+                    'Access-Control-Allow-Origin': '*'
                 },
                 'body': json.dumps({
-                    'message': 'chat_id is required'
+                    'message': 'user_id and class_id are required'
                 })
             }
         
-        # Delete item from DynamoDB
+        # Delete the item
         table.delete_item(
-            Key={'chat_id': chat_id}
+            Key={
+                'user_id': user_id,
+                'class_id': class_id
+            }
         )
         
         return {
             'statusCode': 200,
             'headers': {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
+                'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'message': 'Chat deleted successfully',
-                'chat_id': chat_id
+                'message': 'Class deleted successfully',
+                'class_id': class_id
             })
         }
         
     except Exception as e:
         print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {
             'statusCode': 500,
             'headers': {
@@ -52,7 +55,7 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'message': 'Failed to delete chat',
+                'message': 'Failed to delete class',
                 'error': str(e)
             })
         }

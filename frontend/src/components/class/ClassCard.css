@@ -1,0 +1,77 @@
+.class-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #646cff;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.class-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.class-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.class-name {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #213547;
+    flex: 1;
+}
+
+.class-code {
+    background: #f0f0f0;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #646cff;
+}
+
+.class-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.class-card-body p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #535353;
+}
+
+.class-card-body strong {
+    color: #213547;
+}
+
+.class-description {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e0e0e0;
+    font-style: italic;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .class-card {
+        padding: 1rem;
+    }
+
+    .class-name {
+        font-size: 1.1rem;
+    }
+
+    .class-card-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
